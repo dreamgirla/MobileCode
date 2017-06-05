@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>移动端相册</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+	<link rel="stylesheet" href="css/animate.css">
+	<script src="js/zepto.min.js"></script>
+	<script src="js/touch.min.js"></script>
+	<style type="text/css">
+		body, button, dd, dl, dt, fieldset, form, h1, h2, h2, h4, h5, h6, hr, input, legend, li, ol, p, pre, td, textarea, th, ul, img{
+            margin: 0;
+            padding: 0;
+        }
+        body{
+        	background-color: #000;
+        }
+		ul{
+			list-style: none;
+		}
+		ul li{
+			float: left;
+			width: 100px;
+			height: 100px;
+			overflow: hidden;
+		}
+		#large_container{
+			background-color: #000;
+			/*脱离文档流，负载在所有图片上*/
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+	<ul class="img-container" id="container"></ul>
+	<div class="large animated fadeIn" id="large_container" style="display: none;">
+		<img src="" id="large_img">
+	</div>
+	<script type="text/javascript">
+		var total = 10; //10张图片
+		var zWin = $(window);//获取window对象，和Jquery的用法很像
+		function render() {
+			var padding = 2;//图片之间的间距2px;
+			var winWidth = zWin.width();//获取window宽度
+			var picWidth = Math.floor((winWidth - padding*3)/4);//获取每张图片的宽度，最边上的两列是没有2px的padding值的
+			var tmpl = '';//为了拼接字符串，不能写成var temp;因为是undefined,undefined加字符串得到undefined会报错
+			for(var i = 1; i <= total; i++) {
+				//判断一下图片是不是第一列的
+				var p = padding;
+				if(i%4 == 1) {//判断第一列
+					p = 0;
+				}
+				var imgSrc = 'img/'+i+'.jpg';
+				tmpl += '<li data_id="'+i+'" class="animated bounceIn" style="width:'+picWidth+'px;height:'+picWidth+'px;padding-top:'+padding+'px;padding-left:'+p+'px"><canvas id="cvs_'+i+'"></canvas></li>';
+				//获取imge对象
+				var imageObj = new Image();
+				//我们给每个imgeObj对象设一个标识，每个对应的标识都是唯一的，是为了找到获取的是哪一个canvas，
+				imageObj.index = i;
+				//把imge的一个方法onloda只有触发onload事件的时候，才表示我们这个图片发送请求了，并且发送成功了，返回给我们图片了，之后我们才执行这个函数。
+				imageObj.onload = function(){
+					//$('#cvs_'+this.index)四个对象，..[0]是它的dom引用
+					var cvs = $('#cvs_'+this.index)[0].getContext('2d');
+					//获取到的图片的宽高直接赋给canvas
+					cvs.width = this.width;
+					cvs.height = this.height;
+					//第一个是obj对象，this就是imgeObj，起始点的坐标0,0
+					cvs.drawImage(this,0,0);
+					//我们把img的src获取过来，放在obj的src中
+				}
+					imageObj.src = imgSrc;
+			}
+			$('#container').html(tmpl);
+		}
+		render();	
+		//事件代理,delegate()方法为指定的元素（属于被选定的子元素）添加一个或多个事件处理程序，并规定当这些事件发生时运行的函数
+		$('#container').delegate('li','tap',function(){
+				//获取li的自定义id,我们就能知道获取的哪张图片 cid标记滑动时第几个图
+				var _id = cid = $(this).attr('data_id');
+				loadImg(_id);
+		});
+		//获取图片
+		var wImage = $('#large_img');
+		var domImage = $('#large_img')[0];//dom引用
+		function loadImg(_id,callback){
+			$('#large_container').css({width:zWin.width(),height:zWin.height()}).show();
+			var imgsrc = 'img/'+_id+'large.jpg';
+			var imageObj = new Image();
+			imageObj.onload = function(){
+				var w = this.width;
+				var h = this.height;
+				//获取浏览器的宽高，区别竖图和横图
+				var winWidth =  zWin.width();
+				var winHeight = zWin.height();
+
+				//竖图，我们希望高度就是真实图片的高度，宽度居中，横图，我们希望宽度就是图片真实宽度，高度居中
+				
+				//如果是竖图的话，获取真实的宽w比真实的高h = 所呈现的真实宽realw比真实高winHeight
+
+				//竖图：原图的宽/高 = 真实宽/高 w/h = realw/winHeight
+				//横图： w/h = winWidth/realh
+				var realw = winHeight * w/h;
+				var realh = winWidth * h/w;
+				var paddingLeft = parseInt((winWidth - realw)/2);//竖图
+				var paddingTop = parseInt((winHeight - realh)/2);//横图
+				//滑动的时候padding会记住原来的px，位置会串
+				wImage.css('width','auto').css('height','auto');
+				wImage.css('padding-top','0px').css('padding-left','0px');
+				if (h/w > 1.5) {//竖图,高度撑满整个屏幕，宽度居中
+					wImage.attr('src',imgsrc).css('height',winHeight).css('padding-left',paddingLeft);
+
+				}else{//横图
+					wImage.attr('src',imgsrc).css('width',winWidth).css('padding-top',paddingTop);
+				}
+				//判断是否是有回调函数
+				if (callback) {
+					callback();
+				}
+			}
+			imageObj.src = imgsrc;
+		}
+			
+		$('#large_container').tap(function(){
+			$(this).hide();
+		}).swipeLeft(function(){
+			//标记图片，是第几个
+			cid++;
+			if (cid>total) {
+				cid = total;
+			}else{
+				//继续展示图片，把当前的值传给它，然后走回调函数
+				loadImg(cid,function(){
+					//监听事件，把上一个动画取消掉，不一定下一个动画是什么样的				
+					//动画结束会触发一个事件，当动画结束后，监听事件好滑动到下一张图片
+					// domImage.addEventListener('webkitAnimationEnd',function(){
+					// 	  //拿到对象，想看到下一张图片,往左滑
+					// 	  wImage.removeClass('animated bounceInRight');
+					// 	  domImage.removeEventListener('webkitAnimationEnd',false);//取消监听
+					// 	},false);
+						wImage.addClass('animated bounceInRight');
+					})
+				}
+		}).swipeRight(function(){
+			cid--;
+			if (cid<1) {
+				cid = 1;
+			}else{
+				loadImg(cid,function(){
+					//动画结束会触发一个事件，当动画结束后，监听事件好滑动到下一张图片
+					domImage.addEventListener('webkitAnimationEnd',function(){
+						//拿到对象，想看到下一张图片,往右滑
+						//添加事件监听，动画结束时执行
+							wImage.addClass('animated bounceInLeft');
+							domImage.removeEventListener('webkitAnimationEnd',false);//取消监听
+						},false);
+						wImage.addClass('animated bounceInLeft');
+					})
+			}
+		});
+
+	</script>
+</body>
+</html>
